@@ -51,12 +51,14 @@ type
   public
     _exit: boolean;
     result: string;
-    constructor Create(procedures: TArrayOfProcedures); reintroduce; overload;
+    constructor Create(procedures: TArrayOfObjectProcedures); reintroduce; overload;
   end;
 
   TPromiseAll = class(TWinControl)
   private
+    objectProcedures: TArrayOfObjectProcedures;
     procedures: TArrayOfProcedures;
+
     numberProcedures: integer;
     countProceduresDone: integer;
     thenProcedure: TResolve;
@@ -65,23 +67,25 @@ type
     status: string;
     _exit: boolean;
     procedure executeProcedures;
-    procedure createPromise(_procedure: TProcedureOfObject);
+    procedure createPromise(_procedure: TProcedureOfObject); overload;
+    procedure createPromise(_procedure: TProcedure); overload;
 
     procedure incCountProceduresDone;
   public
     //
     //    procedure _then(value: TResolve);
     //    procedure _catch(value: TReject);
+    constructor Create(procedures: TArrayOfObjectProcedures; _then: TResolve; _catch: TReject); reintroduce; overload;
     constructor Create(procedures: TArrayOfProcedures; _then: TResolve; _catch: TReject); reintroduce; overload;
   end;
 
   EExitPromise = class(EAbort);
 
-function awaitPromiseAll(procedures: TArrayOfProcedures): string;
+function awaitPromiseAll(procedures: TArrayOfObjectProcedures): string;
 
 implementation
 
-function awaitPromiseAll(procedures: TArrayOfProcedures): string; // REVIEW
+function awaitPromiseAll(procedures: TArrayOfObjectProcedures): string; // REVIEW
 var
   _awaitPromiseAll: TAwaitPromiseAll;
   _result: string;
@@ -97,7 +101,7 @@ begin
   result := _result;
 end;
 
-constructor TAwaitPromiseAll.Create(procedures: TArrayOfProcedures);
+constructor TAwaitPromiseAll.Create(procedures: TArrayOfObjectProcedures);
 var
   _promiseAll: TPromiseAll;
 begin
@@ -113,6 +117,21 @@ begin
     end);
 end;
 
+constructor TPromiseAll.Create(procedures: TArrayOfObjectProcedures; _then: TResolve; _catch: TReject);
+begin
+  self.objectProcedures := procedures;
+  self.numberProcedures := Length(procedures);
+  self.countProceduresDone := 0;
+  Create(nil);
+  Parent := Application.MainForm;
+
+  //  status := 'created';
+  thenProcedure := _then;
+  catchProcedure := _catch;
+  executeProcedures;
+end;
+
+//TODO: REFACTOR
 constructor TPromiseAll.Create(procedures: TArrayOfProcedures; _then: TResolve; _catch: TReject);
 begin
   self.procedures := procedures;
@@ -134,17 +153,10 @@ begin
   //  status := 'pending';
   _exit := false;
   i := 0;
-  while not _exit do
+
+  for i := 0 to numberProcedures - 1 do
   begin
-    if i < numberProcedures then
-    begin
-      createPromise(self.procedures[i]);
-      inc(i);
-    end
-    else
-    begin
-      _exit := true;
-    end;
+    createPromise(self.procedures[i]);
   end;
 end;
 
@@ -155,8 +167,11 @@ begin
   _promise := TPromise.Create(
     procedure(resolve: TResolve; reject: TResolve)
     begin
-      _procedure;
-      resolve('');
+      if not _exit then
+      begin
+        _procedure;
+        resolve('');
+      end;
     end,
     procedure(value: String)
     begin
@@ -165,15 +180,46 @@ begin
     procedure(value: String)
     begin
       //      status := 'reject';
-      catchProcedure(value);
-      _exit := true;
+      if not _exit then
+      begin
+        catchProcedure(value);
+        _exit := true;
+      end;
+    end);
+end;
+
+procedure TPromiseAll.createPromise(_procedure: TProcedure);
+var
+  _promise: TPromise;
+begin
+  _promise := TPromise.Create(
+    procedure(resolve: TResolve; reject: TResolve)
+    begin
+      if not _exit then
+      begin
+        _procedure;
+        resolve('');
+      end;
+    end,
+    procedure(value: String)
+    begin
+      incCountProceduresDone;
+    end,
+    procedure(value: String)
+    begin
+      //      status := 'reject';
+      if not _exit then
+      begin
+        catchProcedure(value);
+        _exit := true;
+      end;
     end);
 end;
 
 procedure TPromiseAll.incCountProceduresDone;
 begin
   inc(countProceduresDone);
-  if countProceduresDone = numberProcedures then
+  if (countProceduresDone = numberProcedures) then
   begin
     //    status := 'resolve';
     thenProcedure('');
