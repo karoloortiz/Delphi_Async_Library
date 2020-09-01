@@ -47,14 +47,14 @@ type
     constructor Create(mainProcedureFull: TPromiseFull); reintroduce; overload;
   end;
 
-  TAwaitPromiseAll = class(TWinControl)
+  TAwaitPromiseAll = class
   public
     _exit: boolean;
     result: string;
     constructor Create(procedures: TArrayOfObjectProcedures); reintroduce; overload;
   end;
 
-  TPromiseAll = class(TWinControl)
+  TPromiseAll = class
   private
     objectProcedures: TArrayOfObjectProcedures;
     procedures: TArrayOfProcedures;
@@ -77,6 +77,7 @@ type
     //    procedure _catch(value: TReject);
     constructor Create(procedures: TArrayOfObjectProcedures; _then: TResolve; _catch: TReject); reintroduce; overload;
     constructor Create(procedures: TArrayOfProcedures; _then: TResolve; _catch: TReject); reintroduce; overload;
+    constructor Create(_then: TResolve; _catch: TReject); reintroduce; overload;
   end;
 
   EExitPromise = class(EAbort);
@@ -120,25 +121,19 @@ end;
 constructor TPromiseAll.Create(procedures: TArrayOfObjectProcedures; _then: TResolve; _catch: TReject);
 begin
   self.objectProcedures := procedures;
-  self.numberProcedures := Length(procedures);
-  self.countProceduresDone := 0;
-  Create(nil);
-  Parent := Application.MainForm;
-
-  //  status := 'created';
-  thenProcedure := _then;
-  catchProcedure := _catch;
-  executeProcedures;
+  Create(_then, _catch);
 end;
 
-//TODO: REFACTOR
 constructor TPromiseAll.Create(procedures: TArrayOfProcedures; _then: TResolve; _catch: TReject);
 begin
   self.procedures := procedures;
+  Create(_then, _catch);
+end;
+
+constructor TPromiseAll.Create(_then: TResolve; _catch: TReject);
+begin
   self.numberProcedures := Length(procedures);
   self.countProceduresDone := 0;
-  Create(nil);
-  Parent := Application.MainForm;
 
   //  status := 'created';
   thenProcedure := _then;
@@ -288,8 +283,6 @@ begin
 end;
 
 procedure TPromise.executeInAnonymousThread;
-//var
-//  _thread: TThread;
 begin
   TThread.CreateAnonymousThread(
     procedure
@@ -309,25 +302,6 @@ begin
       end;
       CoUninitialize;
     end).Start;
-
-  //  TThread.Synchronize(nil,
-  //    procedure
-  //    begin
-  //      CoInitialize(nil);
-  //      try
-  //        mainProcedure;
-  //      except
-  //        on e: Exception do
-  //        begin
-  //          if (e.ClassType <> EExitPromise) then
-  //          begin
-  //            CoUninitialize;
-  //            reject(e.Message);
-  //          end;
-  //        end;
-  //      end;
-  //      CoUninitialize;
-  //    end);
 end;
 
 procedure TPromise.mainProcedure;
