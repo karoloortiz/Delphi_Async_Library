@@ -3,8 +3,9 @@ unit KLib.Promise;
 interface
 
 uses
-  Vcl.Controls, Winapi.Messages, System.SysUtils, VCL.Forms, Winapi.Windows, System.Classes,
-
+  Vcl.Controls, VCL.Forms,
+  Winapi.Windows, Winapi.Messages,
+  System.SysUtils, System.Classes,
   ActiveX,
 
   KLib.Types;
@@ -13,7 +14,6 @@ const
   WM_PROMISE_EXECUTE = WM_USER + 102;
 
 type
-
   TResolve = reference to procedure(msg: String);
   TReject = reference to procedure(msg: String);
   TPromiseFull = reference to procedure(resolve: TResolve; reject: TResolve);
@@ -21,7 +21,7 @@ type
   TPromiseResolve = reference to procedure(resolve: TResolve);
   TPromiseReject = reference to procedure(reject: TReject);
 
-  TPromise = class(TWinControl)
+  TPromise = class
   private
     _mainProcedureFull: TPromiseFull;
     _mainProcedureOnlyResolve: TPromiseResolve;
@@ -32,7 +32,7 @@ type
     enabledExecute: boolean;
     enabledThen: boolean;
     enabledCatch: boolean;
-    procedure onPromiseExecute(var Msg: TMessage); message WM_PROMISE_EXECUTE;
+    procedure execute;
     procedure executeInAnonymousThread;
     procedure mainProcedure;
     procedure resolve(msg: string);
@@ -58,6 +58,8 @@ type
   private
     objectProcedures: TArrayOfObjectProcedures;
     procedures: TArrayOfProcedures;
+
+    proceduresAreObject: boolean;
 
     numberProcedures: integer;
     countProceduresDone: integer;
@@ -121,18 +123,27 @@ end;
 constructor TPromiseAll.Create(procedures: TArrayOfObjectProcedures; _then: TResolve; _catch: TReject);
 begin
   self.objectProcedures := procedures;
+  proceduresAreObject := true;
   Create(_then, _catch);
 end;
 
 constructor TPromiseAll.Create(procedures: TArrayOfProcedures; _then: TResolve; _catch: TReject);
 begin
   self.procedures := procedures;
+  proceduresAreObject := false;
   Create(_then, _catch);
 end;
 
 constructor TPromiseAll.Create(_then: TResolve; _catch: TReject);
 begin
-  self.numberProcedures := Length(procedures);
+  if proceduresAreObject then
+  begin
+    self.numberProcedures := Length(objectProcedures);
+  end
+  else
+  begin
+    self.numberProcedures := Length(procedures);
+  end;
   self.countProceduresDone := 0;
 
   //  status := 'created';
@@ -151,7 +162,14 @@ begin
 
   for i := 0 to numberProcedures - 1 do
   begin
-    createPromise(self.procedures[i]);
+    if proceduresAreObject then
+    begin
+      createPromise(self.objectProcedures[i]);
+    end
+    else
+    begin
+      createPromise(self.procedures[i]);
+    end;
   end;
 end;
 
@@ -225,16 +243,12 @@ constructor TPromise.Create(mainProcedureOnlyResolve: TPromiseResolve);
 begin
   self._mainProcedureOnlyResolve := mainProcedureOnlyResolve;
   enabledCatch := true;
-  Create(nil);
-  Parent := Application.MainForm;
 end;
 
 constructor TPromise.Create(mainProcedureOnlyReject: TPromiseReject);
 begin
   self._mainProcedureOnlyReject := mainProcedureOnlyReject;
   enabledThen := true;
-  Create(nil);
-  Parent := Application.MainForm;
 end;
 
 constructor TPromise.Create(mainProcedureFull: TPromiseFull; _then: TResolve; _catch: TReject);
@@ -247,8 +261,6 @@ end;
 constructor TPromise.Create(mainProcedureFull: TPromiseFull);
 begin
   self._mainProcedureFull := mainProcedureFull;
-  Create(nil);
-  Parent := Application.MainForm;
 end;
 
 procedure TPromise._then(value: TResolve);
@@ -258,7 +270,7 @@ begin
   enabledExecute := enabledThen and enabledCatch;
   if enabledExecute then
   begin
-    PostMessage(self.Handle, WM_PROMISE_EXECUTE, 0, 0);
+    execute;
   end;
 end;
 
@@ -269,11 +281,11 @@ begin
   enabledExecute := enabledThen and enabledCatch;
   if enabledExecute then
   begin
-    PostMessage(self.Handle, WM_PROMISE_EXECUTE, 0, 0);
+    execute;
   end;
 end;
 
-procedure TPromise.onPromiseExecute(var Msg: TMessage);
+procedure TPromise.execute;
 begin
   if not alreadyExecuted then
   begin
