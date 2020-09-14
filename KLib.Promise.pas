@@ -66,7 +66,7 @@ type
     thenProcedure: TResolve;
     catchProcedure: TReject;
 
-    status: string;
+    //    status: string;
     _exit: boolean;
     procedure executeProcedures;
     procedure createPromise(_procedure: TProcedureOfObject); overload;
