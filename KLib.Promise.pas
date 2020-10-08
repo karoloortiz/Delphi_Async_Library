@@ -3,43 +3,38 @@ unit KLib.Promise;
 interface
 
 uses
-  Vcl.Controls, VCL.Forms,
-  Winapi.Windows, Winapi.Messages,
-  System.SysUtils, System.Classes,
-  ActiveX,
-
   KLib.Types;
 
 type
 
-  TAwaitPromiseAll = class
+  TAwaitPromiseAll = class  //TODO REVIEW
   public
     _exit: boolean;
     result: string;
-    constructor Create(procedures: TArrayOfObjectProcedures); reintroduce; overload;
+    constructor Create(methods: TArrayOfMethods); reintroduce; overload;
   end;
 
   TPromiseAll = class
   private
-    objectProcedures: TArrayOfObjectProcedures;
-    procedures: TArrayOfProcedures;
-    thenProcedure: TCallBack;
-    catchProcedure: TCallback;
-    proceduresAreObject: boolean;
+    methods: TArrayOfMethods;
+    anonymousMethods: TArrayOfAnonymousMethods;
+    thenCallback: TCallBack;
+    catchCallback: TCallback;
+    typeOfProcedure: TTypeOfProcedure;
     numberProcedures: integer;
     countProceduresDone: integer;
     _exit: boolean;
     constructor Create(_then: TCallBack; _catch: TCallback); reintroduce; overload;
     procedure executeProcedures;
-    procedure createPromise(_procedure: TProcedureOfObject); overload;
-    procedure createPromise(_procedure: TProcedure); overload;
+    procedure createPromise(_method: TMethod); overload;
+    procedure createPromise(_anonymousMethod: TAnonymousMethod); overload;
     procedure incCountProceduresDone;
   public
     status: string;
-    constructor Create(procedures: TArrayOfObjectProcedures; callBacks: TCallbacks); reintroduce; overload;
-    constructor Create(procedures: TArrayOfObjectProcedures; _then: TCallBack; _catch: TCallback); reintroduce; overload;
-    constructor Create(procedures: TArrayOfProcedures; callBacks: TCallbacks); reintroduce; overload;
-    constructor Create(procedures: TArrayOfProcedures; _then: TCallBack; _catch: TCallback); reintroduce; overload;
+    constructor Create(methods: TArrayOfMethods; callBacks: TCallbacks); reintroduce; overload;
+    constructor Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
+    constructor Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks); reintroduce; overload;
+    constructor Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
   end;
 
   TExecutorFunction = reference to procedure(resolve: TCallBack; reject: TCallback);
@@ -47,11 +42,11 @@ type
   TPromise = class
   private
     executorFunction: TExecutorFunction;
-    thenProcedure: TCallBack;
-    catchProcedure: TCallback;
+    thenCallback: TCallBack;
+    catchCallback: TCallback;
     alreadyExecuted: boolean;
-    enabledThen: boolean;
-    enabledCatch: boolean;
+    enabledThenCallback: boolean;
+    enabledCatchCallback: boolean;
     procedure execute;
     procedure executeInAnonymousThread;
     procedure resolve(msg: string);
@@ -63,11 +58,16 @@ type
     procedure _catch(value: TCallback);
   end;
 
-function awaitPromiseAll(procedures: TArrayOfObjectProcedures): string;
+function awaitPromiseAll(procedures: TArrayOfMethods): string;
 
 implementation
 
-function awaitPromiseAll(procedures: TArrayOfObjectProcedures): string; // REVIEW
+uses
+  VCL.Forms,
+  Winapi.ActiveX,
+  System.SysUtils, System.Classes;
+
+function awaitPromiseAll(procedures: TArrayOfMethods): string; //TODO REVIEW
 var
   _awaitPromiseAll: TAwaitPromiseAll;
   _result: string;
@@ -83,11 +83,11 @@ begin
   result := _result;
 end;
 
-constructor TAwaitPromiseAll.Create(procedures: TArrayOfObjectProcedures);
+constructor TAwaitPromiseAll.Create(methods: TArrayOfMethods);
 var
   _promiseAll: TPromiseAll;
 begin
-  _promiseAll := TPromiseAll.Create(procedures,
+  _promiseAll := TPromiseAll.Create(methods,
     procedure(value: String)
     begin
       result := value;
@@ -99,45 +99,42 @@ begin
     end);
 end;
 
-constructor TPromiseAll.Create(procedures: TArrayOfObjectProcedures; callBacks: TCallbacks);
+constructor TPromiseAll.Create(methods: TArrayOfMethods; callBacks: TCallbacks);
 begin
-  Create(procedures, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
+  Create(methods, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
 end;
 
-constructor TPromiseAll.Create(procedures: TArrayOfObjectProcedures; _then: TCallBack; _catch: TCallback);
+constructor TPromiseAll.Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback);
 begin
-  self.objectProcedures := procedures;
-  proceduresAreObject := true;
+  self.methods := methods;
+  typeOfProcedure := TTypeOfProcedure._method;
   Create(_then, _catch);
 end;
 
-constructor TPromiseAll.Create(procedures: TArrayOfProcedures; callBacks: TCallbacks);
+constructor TPromiseAll.Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks);
 begin
-  Create(procedures, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
+  Create(anonymousMethods, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
 end;
 
-constructor TPromiseAll.Create(procedures: TArrayOfProcedures; _then: TCallBack; _catch: TCallback);
+constructor TPromiseAll.Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback);
 begin
-  self.procedures := procedures;
-  proceduresAreObject := false;
+  self.anonymousMethods := anonymousMethods;
+  typeOfProcedure := TTypeOfProcedure._anonymousMethod;
   Create(_then, _catch);
 end;
 
 constructor TPromiseAll.Create(_then: TCallBack; _catch: TCallback);
 begin
-  if proceduresAreObject then
-  begin
-    self.numberProcedures := Length(objectProcedures);
-  end
-  else
-  begin
-    self.numberProcedures := Length(procedures);
+  case typeOfProcedure of
+    TTypeOfProcedure._method:
+      self.numberProcedures := Length(methods);
+    TTypeOfProcedure._anonymousMethod:
+      self.numberProcedures := Length(anonymousMethods);
   end;
   self.countProceduresDone := 0;
-
   status := 'created';
-  thenProcedure := _then;
-  catchProcedure := _catch;
+  thenCallback := _then;
+  catchCallback := _catch;
   executeProcedures;
 end;
 
@@ -148,21 +145,18 @@ begin
   status := 'pending';
   _exit := false;
   i := 0;
-
   for i := 0 to numberProcedures - 1 do
   begin
-    if proceduresAreObject then
-    begin
-      createPromise(self.objectProcedures[i]);
-    end
-    else
-    begin
-      createPromise(self.procedures[i]);
+    case typeOfProcedure of
+      TTypeOfProcedure._method:
+        createPromise(self.methods[i]);
+      TTypeOfProcedure._anonymousMethod:
+        createPromise(self.anonymousMethods[i]);
     end;
   end;
 end;
 
-procedure TPromiseAll.createPromise(_procedure: TProcedureOfObject);
+procedure TPromiseAll.createPromise(_method: TMethod);
 var
   _promise: TPromise;
 begin
@@ -171,7 +165,7 @@ begin
     begin
       if not _exit then
       begin
-        _procedure;
+        _method;
         resolve('');
       end;
     end,
@@ -184,13 +178,13 @@ begin
       status := 'reject';
       if not _exit then
       begin
-        catchProcedure(value);
+        catchCallback(value);
         _exit := true;
       end;
     end);
 end;
 
-procedure TPromiseAll.createPromise(_procedure: TProcedure);
+procedure TPromiseAll.createPromise(_anonymousMethod: TAnonymousMethod);
 var
   _promise: TPromise;
 begin
@@ -199,7 +193,7 @@ begin
     begin
       if not _exit then
       begin
-        _procedure;
+        _anonymousMethod;
         resolve('');
       end;
     end,
@@ -212,7 +206,7 @@ begin
       status := 'reject';
       if not _exit then
       begin
-        catchProcedure(value);
+        catchCallback(value);
         _exit := true;
       end;
     end);
@@ -224,7 +218,7 @@ begin
   if (countProceduresDone = numberProcedures) then
   begin
     status := 'resolve';
-    thenProcedure('');
+    thenCallback('');
   end;
 end;
 
@@ -247,9 +241,9 @@ procedure TPromise._then(value: TCallBack);
 var
   enabledExecute: boolean;
 begin
-  enabledThen := true;
-  thenProcedure := value;
-  enabledExecute := enabledThen and enabledCatch;
+  enabledThenCallback := true;
+  thenCallback := value;
+  enabledExecute := enabledThenCallback and enabledCatchCallback;
   if enabledExecute then
   begin
     execute;
@@ -260,9 +254,9 @@ procedure TPromise._catch(value: TCallback);
 var
   enabledExecute: boolean;
 begin
-  enabledCatch := true;
-  catchProcedure := value;
-  enabledExecute := enabledThen and enabledCatch;
+  enabledCatchCallback := true;
+  catchCallback := value;
+  enabledExecute := enabledThenCallback and enabledCatchCallback;
   if enabledExecute then
   begin
     execute;
@@ -302,13 +296,13 @@ end;
 
 procedure TPromise.resolve(msg: string);
 begin
-  thenProcedure(msg);
+  thenCallback(msg);
   raise EExitPromise.Create('force exit in resolve procedure');
 end;
 
 procedure TPromise.reject(msg: string);
 begin
-  catchProcedure(msg);
+  catchCallback(msg);
   raise EExitPromise.Create('force exit in reject procedure');
 end;
 

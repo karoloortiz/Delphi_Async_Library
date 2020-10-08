@@ -6,17 +6,17 @@ uses
   System.Classes, Winapi.Windows, System.SysUtils,
   KLib.Types;
 
-procedure asyncifyProcedure(myProcedureWithThrowException: TProcedureOfObject; reply: TAsyncifyProcedureReply);
+procedure asyncifyMethod(methodWithThrowException: TMethod; reply: TAsyncifyProcedureReply);
 
 implementation
 
-procedure asyncifyProcedure(myProcedureWithThrowException: TProcedureOfObject; reply: TAsyncifyProcedureReply);
+procedure asyncifyMethod(methodWithThrowException: TMethod; reply: TAsyncifyProcedureReply);
 begin
   TThread.CreateAnonymousThread(
     procedure
     begin
       try
-        myProcedureWithThrowException;
+        methodWithThrowException;
         PostMessage(reply.handle, reply.msg_resolve, 0, 0);
       except
         on E: Exception do
