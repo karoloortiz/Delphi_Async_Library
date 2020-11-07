@@ -7,7 +7,7 @@ uses
 
 type
 
-  TAwaitPromiseAll = class  //TODO REVIEW
+  TAwaitPromiseAll = class //TODO REVIEW
   public
     _exit: boolean;
     result: string;
@@ -34,7 +34,7 @@ type
     constructor Create(methods: TArrayOfMethods; callBacks: TCallbacks); reintroduce; overload;
     constructor Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
     constructor Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks); reintroduce; overload;
-    constructor Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
+    constructor Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload; //restituire array con tutti i valori passati?
   end;
 
   TExecutorFunction = reference to procedure(resolve: TCallBack; reject: TCallback);
@@ -144,7 +144,6 @@ var
 begin
   status := 'pending';
   _exit := false;
-  i := 0;
   for i := 0 to numberProcedures - 1 do
   begin
     case typeOfProcedure of
