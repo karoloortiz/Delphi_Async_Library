@@ -5,7 +5,7 @@ KLib Version = 1.0
 A library with some async utilities for your Delphi Apps.
 
 Dependencies:
-  https://github.com/karoloortiz/Delphi_Utils_Library.git  (KLib.Types.pas)
+ - https://github.com/karoloortiz/Delphi_Utils_Library.git
   
 TODO:
   - examples
