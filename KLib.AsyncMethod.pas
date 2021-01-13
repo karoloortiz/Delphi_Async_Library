@@ -1,4 +1,39 @@
-unit KLib.Promise;
+{
+  KLib Version = 1.0
+  The Clear BSD License
+
+  Copyright (c) 2020 by Karol De Nery Ortiz LLave. All rights reserved.
+  zitrokarol@gmail.com
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted (subject to the limitations in the disclaimer
+  below) provided that the following conditions are met:
+
+  * Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+
+  * Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY
+  THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+  CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+}
+unit KLib.AsyncMethod;
 
 interface
 
@@ -6,15 +41,9 @@ uses
   KLib.Types;
 
 type
+  //todo implementing of promises
 
-  TAwaitPromiseAll = class //TODO REVIEW
-  public
-    _exit: boolean;
-    result: string;
-    constructor Create(methods: TArrayOfMethods); reintroduce; overload;
-  end;
-
-  TPromiseAll = class
+  TAsyncMethods = class
   private
     methods: TArrayOfMethods;
     anonymousMethods: TArrayOfAnonymousMethods;
@@ -26,11 +55,11 @@ type
     _exit: boolean;
     constructor Create(_then: TCallBack; _catch: TCallback); reintroduce; overload;
     procedure executeProcedures;
-    procedure createPromise(_method: TMethod); overload;
-    procedure createPromise(_anonymousMethod: TAnonymousMethod); overload;
+    procedure createAsyncMethod(_method: TMethod); overload;
+    procedure createAsyncMethod(_anonymousMethod: TAnonymousMethod); overload;
     procedure incCountProceduresDone;
   public
-    status: string;
+    status: TAsyncMethodStatus;
     constructor Create(methods: TArrayOfMethods; callBacks: TCallbacks); reintroduce; overload;
     constructor Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
     constructor Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks); reintroduce; overload;
@@ -39,7 +68,7 @@ type
 
   TExecutorFunction = reference to procedure(resolve: TCallBack; reject: TCallback);
 
-  TPromise = class
+  TAsyncMethod = class
   private
     executorFunction: TExecutorFunction;
     thenCallback: TCallBack;
@@ -52,78 +81,44 @@ type
     procedure resolve(msg: string);
     procedure reject(msg: string);
   public
+    constructor Create(executorFunction: TExecutorFunction; callBacks: TCallbacks); reintroduce; overload;
     constructor Create(executorFunction: TExecutorFunction; _then: TCallBack; _catch: TCallback); reintroduce; overload;
     constructor Create(executorFunction: TExecutorFunction); reintroduce; overload;
     procedure _then(value: TCallBack);
     procedure _catch(value: TCallback);
   end;
 
-function awaitPromiseAll(procedures: TArrayOfMethods): string;
-
 implementation
 
 uses
-  VCL.Forms,
   Winapi.ActiveX,
   System.SysUtils, System.Classes;
 
-function awaitPromiseAll(procedures: TArrayOfMethods): string; //TODO REVIEW
-var
-  _awaitPromiseAll: TAwaitPromiseAll;
-  _result: string;
-begin
-  _awaitpromiseAll := TAwaitPromiseAll.Create(procedures);
-  while not _awaitPromiseAll._exit do
-  begin
-    Application.ProcessMessages;
-    sleep(500);
-  end;
-  _result := _awaitPromiseAll.result;
-  FreeAndNil(_awaitPromiseAll);
-  result := _result;
-end;
-
-constructor TAwaitPromiseAll.Create(methods: TArrayOfMethods);
-var
-  _promiseAll: TPromiseAll;
-begin
-  _promiseAll := TPromiseAll.Create(methods,
-    procedure(value: String)
-    begin
-      result := value;
-      _exit := true;
-    end,
-    procedure(value: String)
-    begin
-      raise Exception.Create(value);
-    end);
-end;
-
-constructor TPromiseAll.Create(methods: TArrayOfMethods; callBacks: TCallbacks);
+constructor TAsyncMethods.Create(methods: TArrayOfMethods; callBacks: TCallbacks);
 begin
   Create(methods, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
 end;
 
-constructor TPromiseAll.Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback);
+constructor TAsyncMethods.Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback);
 begin
   self.methods := methods;
   typeOfProcedure := TTypeOfProcedure._method;
   Create(_then, _catch);
 end;
 
-constructor TPromiseAll.Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks);
+constructor TAsyncMethods.Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks);
 begin
   Create(anonymousMethods, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
 end;
 
-constructor TPromiseAll.Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback);
+constructor TAsyncMethods.Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback);
 begin
   self.anonymousMethods := anonymousMethods;
   typeOfProcedure := TTypeOfProcedure._anonymousMethod;
   Create(_then, _catch);
 end;
 
-constructor TPromiseAll.Create(_then: TCallBack; _catch: TCallback);
+constructor TAsyncMethods.Create(_then: TCallBack; _catch: TCallback);
 begin
   case typeOfProcedure of
     TTypeOfProcedure._method:
@@ -132,34 +127,34 @@ begin
       self.numberProcedures := Length(anonymousMethods);
   end;
   self.countProceduresDone := 0;
-  status := 'created';
+  status := TAsyncMethodStatus.created;
   thenCallback := _then;
   catchCallback := _catch;
   executeProcedures;
 end;
 
-procedure TPromiseAll.executeProcedures;
+procedure TAsyncMethods.executeProcedures;
 var
   i: integer;
 begin
-  status := 'pending';
+  status := TAsyncMethodStatus.pending;
   _exit := false;
   for i := 0 to numberProcedures - 1 do
   begin
     case typeOfProcedure of
       TTypeOfProcedure._method:
-        createPromise(self.methods[i]);
+        createAsyncMethod(self.methods[i]);
       TTypeOfProcedure._anonymousMethod:
-        createPromise(self.anonymousMethods[i]);
+        createAsyncMethod(self.anonymousMethods[i]);
     end;
   end;
 end;
 
-procedure TPromiseAll.createPromise(_method: TMethod);
+procedure TAsyncMethods.createAsyncMethod(_method: TMethod);
 var
-  _promise: TPromise;
+  _promise: TAsyncMethod;
 begin
-  _promise := TPromise.Create(
+  _promise := TAsyncMethod.Create(
     procedure(resolve: TCallBack; reject: TCallback)
     begin
       if not _exit then
@@ -174,7 +169,7 @@ begin
     end,
     procedure(value: String)
     begin
-      status := 'reject';
+      status := TAsyncMethodStatus.rejected;
       if not _exit then
       begin
         catchCallback(value);
@@ -183,11 +178,11 @@ begin
     end);
 end;
 
-procedure TPromiseAll.createPromise(_anonymousMethod: TAnonymousMethod);
+procedure TAsyncMethods.createAsyncMethod(_anonymousMethod: TAnonymousMethod);
 var
-  _promise: TPromise;
+  _promise: TAsyncMethod;
 begin
-  _promise := TPromise.Create(
+  _promise := TAsyncMethod.Create(
     procedure(resolve: TCallBack; reject: TCallback)
     begin
       if not _exit then
@@ -202,7 +197,7 @@ begin
     end,
     procedure(value: String)
     begin
-      status := 'reject';
+      status := TAsyncMethodStatus.rejected;
       if not _exit then
       begin
         catchCallback(value);
@@ -211,12 +206,12 @@ begin
     end);
 end;
 
-procedure TPromiseAll.incCountProceduresDone;
+procedure TAsyncMethods.incCountProceduresDone;
 begin
   inc(countProceduresDone);
   if (countProceduresDone = numberProcedures) then
   begin
-    status := 'resolve';
+    status := TAsyncMethodStatus.fulfilled;
     thenCallback('');
   end;
 end;
@@ -224,85 +219,81 @@ end;
 type
   EExitPromise = class(EAbort);
 
-constructor TPromise.Create(executorFunction: TExecutorFunction; _then: TCallBack; _catch: TCallback);
+constructor TAsyncMethod.Create(executorFunction: TExecutorFunction; callBacks: TCallbacks);
+begin
+  Create(executorFunction, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
+end;
+
+constructor TAsyncMethod.Create(executorFunction: TExecutorFunction; _then: TCallBack; _catch: TCallback);
 begin
   Create(executorFunction);
   self._then(_then);
   self._catch(_catch);
 end;
 
-constructor TPromise.Create(executorFunction: TExecutorFunction);
+constructor TAsyncMethod.Create(executorFunction: TExecutorFunction);
 begin
   self.executorFunction := executorFunction;
 end;
 
-procedure TPromise._then(value: TCallBack);
-var
-  enabledExecute: boolean;
+procedure TAsyncMethod._then(value: TCallBack);
 begin
   enabledThenCallback := true;
   thenCallback := value;
-  enabledExecute := enabledThenCallback and enabledCatchCallback;
-  if enabledExecute then
-  begin
-    execute;
-  end;
+  execute;
 end;
 
-procedure TPromise._catch(value: TCallback);
-var
-  enabledExecute: boolean;
+procedure TAsyncMethod._catch(value: TCallback);
 begin
   enabledCatchCallback := true;
   catchCallback := value;
-  enabledExecute := enabledThenCallback and enabledCatchCallback;
-  if enabledExecute then
-  begin
-    execute;
-  end;
+  execute;
 end;
 
-procedure TPromise.execute;
+procedure TAsyncMethod.execute;
 begin
-  if not alreadyExecuted then
+  if (not alreadyExecuted) and (enabledThenCallback) and (enabledCatchCallback) then
   begin
     alreadyExecuted := true;
     executeInAnonymousThread;
   end;
 end;
 
-procedure TPromise.executeInAnonymousThread;
+procedure TAsyncMethod.executeInAnonymousThread;
 begin
   TThread.CreateAnonymousThread(
     procedure
     begin
       CoInitialize(nil);
       try
-        executorFunction(resolve, reject);
-      except
-        on e: Exception do
-        begin
-          if (e.ClassType <> EExitPromise) then
+        try
+          executorFunction(resolve, reject);
+        except
+          on e: Exception do
           begin
-            CoUninitialize;
-            reject(e.Message);
+            if (e.ClassType <> EExitPromise) then
+            begin
+              reject(e.Message);
+            end;
           end;
         end;
+      finally
+        CoUninitialize;
       end;
-      CoUninitialize;
     end).Start;
 end;
 
-procedure TPromise.resolve(msg: string);
+procedure TAsyncMethod.resolve(msg: string);
 begin
   thenCallback(msg);
   raise EExitPromise.Create('force exit in resolve procedure');
 end;
 
-procedure TPromise.reject(msg: string);
+procedure TAsyncMethod.reject(msg: string);
 begin
   catchCallback(msg);
   raise EExitPromise.Create('force exit in reject procedure');
 end;
 
+//todo add destructor?
 end.
