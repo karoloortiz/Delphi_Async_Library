@@ -55,8 +55,8 @@ type
     _exit: boolean;
     constructor Create(_then: TCallBack; _catch: TCallback); reintroduce; overload;
     procedure executeProcedures;
-    procedure createAsyncMethod(_method: TMethod); overload;
-    procedure createAsyncMethod(_anonymousMethod: TAnonymousMethod); overload;
+    procedure executeAsyncMethod(_method: TMethod); overload;
+    procedure executeAsyncMethod(_anonymousMethod: TAnonymousMethod); overload;
     procedure incCountProceduresDone;
   public
     status: TAsyncMethodStatus;
@@ -143,18 +143,16 @@ begin
   begin
     case typeOfProcedure of
       TTypeOfProcedure._method:
-        createAsyncMethod(self.methods[i]);
+        executeAsyncMethod(self.methods[i]);
       TTypeOfProcedure._anonymousMethod:
-        createAsyncMethod(self.anonymousMethods[i]);
+        executeAsyncMethod(self.anonymousMethods[i]);
     end;
   end;
 end;
 
-procedure TAsyncMethods.createAsyncMethod(_method: TMethod);
-var
-  _promise: TAsyncMethod;
+procedure TAsyncMethods.executeAsyncMethod(_method: TMethod);
 begin
-  _promise := TAsyncMethod.Create(
+  TAsyncMethod.Create(
     procedure(resolve: TCallBack; reject: TCallback)
     begin
       if not _exit then
@@ -178,11 +176,9 @@ begin
     end);
 end;
 
-procedure TAsyncMethods.createAsyncMethod(_anonymousMethod: TAnonymousMethod);
-var
-  _promise: TAsyncMethod;
+procedure TAsyncMethods.executeAsyncMethod(_anonymousMethod: TAnonymousMethod);
 begin
-  _promise := TAsyncMethod.Create(
+  TAsyncMethod.Create(
     procedure(resolve: TCallBack; reject: TCallback)
     begin
       if not _exit then
