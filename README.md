@@ -1,6 +1,6 @@
 # Delphi_Async_Library
 
-KLib Version = 1.0
+KLib Version = 2.0
 
 A library with some async utilities for your Delphi Apps.
 
