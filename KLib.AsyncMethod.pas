@@ -53,18 +53,21 @@ type
     typeOfProcedure: TTypeOfProcedure;
     numberProcedures: integer;
     countProceduresDone: integer;
-    _exit: boolean;
     constructor Create(_then: TCallBack; _catch: TCallback); reintroduce; overload;
     procedure executeProcedures;
     procedure executeAsyncMethod(_method: TMethod); overload;
     procedure executeAsyncMethod(_anonymousMethod: TAnonymousMethod); overload;
     procedure incCountProceduresDone;
+    function _get_exit: boolean;
+    procedure _set_exit(value: boolean);
+    property _exit: boolean read _get_exit write _set_exit;
   public
     status: TAsyncMethodStatus;
     constructor Create(methods: TArrayOfMethods; callBacks: TCallbacks); reintroduce; overload;
     constructor Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
     constructor Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks); reintroduce; overload;
     constructor Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload; //restituire array con tutti i valori passati?
+    destructor Destroy; override;
   end;
 
   TExecutorFunction = reference to procedure(resolve: TCallBack; reject: TCallback);
@@ -87,6 +90,7 @@ type
     constructor Create(executorFunction: TExecutorFunction); reintroduce; overload;
     procedure _then(value: TCallBack);
     procedure _catch(value: TCallback);
+    destructor Destroy; override;
   end;
 
 implementation
@@ -102,7 +106,7 @@ end;
 
 constructor TAsyncMethods.Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback);
 begin
-  self.methods := methods;
+  Self.methods := methods;
   typeOfProcedure := TTypeOfProcedure._method;
   Create(_then, _catch);
 end;
@@ -114,7 +118,7 @@ end;
 
 constructor TAsyncMethods.Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback);
 begin
-  self.anonymousMethods := anonymousMethods;
+  Self.anonymousMethods := anonymousMethods;
   typeOfProcedure := TTypeOfProcedure._anonymousMethod;
   Create(_then, _catch);
 end;
@@ -123,11 +127,11 @@ constructor TAsyncMethods.Create(_then: TCallBack; _catch: TCallback);
 begin
   case typeOfProcedure of
     TTypeOfProcedure._method:
-      self.numberProcedures := Length(methods);
+      Self.numberProcedures := Length(methods);
     TTypeOfProcedure._anonymousMethod:
-      self.numberProcedures := Length(anonymousMethods);
+      Self.numberProcedures := Length(anonymousMethods);
   end;
-  self.countProceduresDone := 0;
+  Self.countProceduresDone := 0;
   status := TAsyncMethodStatus.created;
   thenCallback := _then;
   catchCallback := _catch;
@@ -139,7 +143,6 @@ var
   i: integer;
 begin
   status := TAsyncMethodStatus.pending;
-  _exit := false;
   for i := 0 to numberProcedures - 1 do
   begin
     case typeOfProcedure of
@@ -194,9 +197,9 @@ begin
     end,
     procedure(value: String)
     begin
-      status := TAsyncMethodStatus.rejected;
       if not _exit then
       begin
+        status := TAsyncMethodStatus.rejected;
         catchCallback(value);
         _exit := true;
       end;
@@ -210,7 +213,26 @@ begin
   begin
     status := TAsyncMethodStatus.fulfilled;
     thenCallback('');
+    _exit := true;
   end;
+end;
+
+function TAsyncMethods._get_exit: boolean;
+begin
+  Result := (status = fulfilled) or (status = rejected);
+end;
+
+procedure TAsyncMethods._set_exit(value: boolean);
+begin
+  if value = true then
+  begin
+    Destroy;
+  end;
+end;
+
+destructor TAsyncMethods.Destroy;
+begin
+  inherited;
 end;
 
 type
@@ -224,13 +246,13 @@ end;
 constructor TAsyncMethod.Create(executorFunction: TExecutorFunction; _then: TCallBack; _catch: TCallback);
 begin
   Create(executorFunction);
-  self._then(_then);
-  self._catch(_catch);
+  Self._then(_then);
+  Self._catch(_catch);
 end;
 
 constructor TAsyncMethod.Create(executorFunction: TExecutorFunction);
 begin
-  self.executorFunction := executorFunction;
+  Self.executorFunction := executorFunction;
 end;
 
 procedure TAsyncMethod._then(value: TCallBack);
@@ -276,6 +298,7 @@ begin
         end;
       finally
         CoUninitialize;
+        Self.Destroy;
       end;
     end).Start;
 end;
@@ -292,5 +315,9 @@ begin
   raise EExitPromise.Create('force exit in reject procedure');
 end;
 
-//todo add destructor?
+destructor TAsyncMethod.Destroy;
+begin
+  inherited;
+end;
+
 end.
