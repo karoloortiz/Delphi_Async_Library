@@ -41,12 +41,30 @@ interface
 uses
   KLib.Types;
 
-procedure asyncifyMethod(executorMethod: TMethod); overload;
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure); overload;
 
-procedure asyncifyMethod(executorMethod: TMethod; callBacks: TCallbacks); overload;
-procedure asyncifyMethod(executorMethod: TMethod; _then: TCallBack; _catch: TCallback); overload;
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure; myCallBacks: KLib.Types.TCallbacks); overload;
 
-procedure asyncifyMethod(executorMethod: TMethod; reply: TAsyncifyMethodReply); overload;
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure; _then: KLib.Types.TCallBack; _catch: KLib.Types.TCallback); overload;
+
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure; reply: KLib.Types.TAsyncifyMethodReply); overload;
+
+//##################################################################################################
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod); overload;
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod; myCallBacks: KLib.Types.TCallbacks); overload;
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod; _then: TCallBack; _catch: KLib.Types.TCallback); overload;
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod; reply: KLib.Types.TAsyncifyMethodReply); overload;
+//##################################################################################################
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod); overload;
+
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod; myCallBacks: KLib.Types.TCallbacks); overload;
+
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod; _then: TCallBack; _catch: KLib.Types.TCallback); overload;
+
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod; reply: KLib.Types.TAsyncifyMethodReply); overload;
 
 implementation
 
@@ -54,17 +72,120 @@ uses
   Winapi.Windows,
   System.Classes, System.SysUtils;
 
-procedure asyncifyMethod(executorMethod: TMethod);
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure);
 begin
-  asyncifyMethod(executorMethod, TCallBack(nil), TCallback(nil));
+  asyncifyProcedure(executorProcedure, KLib.Types.TCallBack(nil), KLib.Types.TCallback(nil));
 end;
 
-procedure asyncifyMethod(executorMethod: TMethod; callBacks: TCallbacks);
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure; myCallBacks: KLib.Types.TCallbacks);
 begin
-  asyncifyMethod(executorMethod, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
+  asyncifyProcedure(executorProcedure, KLib.Types.TCallBack(myCallBacks.resolve), KLib.Types.TCallback(myCallBacks.reject));
 end;
 
-procedure asyncifyMethod(executorMethod: TMethod; _then: TCallBack; _catch: TCallback);
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure; _then: KLib.Types.TCallBack; _catch: KLib.Types.TCallback);
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        executorProcedure;
+        if Assigned(_then) then
+        begin
+          _then;
+        end;
+      except
+        on E: Exception do
+        begin
+          if Assigned(_catch) then
+          begin
+            _catch;
+          end;
+        end;
+      end;
+    end).Start;
+end;
+
+procedure asyncifyProcedure(executorProcedure: KLib.Types.TProcedure; reply: KLib.Types.TAsyncifyMethodReply);
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        executorProcedure;
+        PostMessage(reply.handle, reply.msg_resolve, 0, 0);
+      except
+        on E: Exception do
+        begin
+          PostMessage(reply.handle, reply.msg_reject, 0, Integer(pansichar(ansistring(e.Message))));
+        end;
+      end;
+    end).Start;
+end;
+
+//##################################################################################################
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod);
+begin
+  asyncifyAnonymousMethod(executorAnonymousMethod, KLib.Types.TCallBack(nil), KLib.Types.TCallback(nil));
+end;
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod; myCallBacks: KLib.Types.TCallbacks);
+begin
+  asyncifyAnonymousMethod(executorAnonymousMethod, KLib.Types.TCallBack(myCallBacks.resolve), KLib.Types.TCallback(myCallBacks.reject));
+end;
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod; _then: KLib.Types.TCallBack; _catch: KLib.Types.TCallback);
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        executorAnonymousMethod;
+        if Assigned(_then) then
+        begin
+          _then;
+        end;
+      except
+        on E: Exception do
+        begin
+          if Assigned(_catch) then
+          begin
+            _catch;
+          end;
+        end;
+      end;
+    end).Start;
+end;
+
+procedure asyncifyAnonymousMethod(executorAnonymousMethod: KLib.Types.TAnonymousMethod; reply: KLib.Types.TAsyncifyMethodReply);
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      try
+        executorAnonymousMethod;
+        PostMessage(reply.handle, reply.msg_resolve, 0, 0);
+      except
+        on E: Exception do
+        begin
+          PostMessage(reply.handle, reply.msg_reject, 0, Integer(pansichar(ansistring(e.Message))));
+        end;
+      end;
+    end).Start;
+end;
+
+//##################################################################################################
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod);
+begin
+  asyncifyMethod(executorMethod, KLib.Types.TCallBack(nil), KLib.Types.TCallback(nil));
+end;
+
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod; myCallBacks: KLib.Types.TCallbacks);
+begin
+  asyncifyMethod(executorMethod, KLib.Types.TCallBack(myCallBacks.resolve), KLib.Types.TCallback(myCallBacks.reject));
+end;
+
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod; _then: KLib.Types.TCallBack; _catch: KLib.Types.TCallback);
 begin
   TThread.CreateAnonymousThread(
     procedure
@@ -87,7 +208,7 @@ begin
     end).Start;
 end;
 
-procedure asyncifyMethod(executorMethod: TMethod; reply: TAsyncifyMethodReply);
+procedure asyncifyMethod(executorMethod: KLib.Types.TMethod; reply: KLib.Types.TAsyncifyMethodReply);
 begin
   TThread.CreateAnonymousThread(
     procedure
