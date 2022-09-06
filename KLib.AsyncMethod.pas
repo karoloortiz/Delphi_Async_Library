@@ -219,7 +219,7 @@ end;
 
 function TAsyncMethods._get_exit: boolean;
 begin
-  Result := (status = fulfilled) or (status = rejected);
+  Result := (status = TAsyncMethodStatus.fulfilled) or (status = TAsyncMethodStatus.rejected);
 end;
 
 procedure TAsyncMethods._set_exit(value: boolean);
@@ -234,9 +234,6 @@ destructor TAsyncMethods.Destroy;
 begin
   inherited;
 end;
-
-type
-  EExitPromise = class(EAbort);
 
 constructor TAsyncMethod.Create(executorFunction: TExecutorFunction; callBacks: TCallbacks);
 begin
@@ -290,7 +287,7 @@ begin
         except
           on e: Exception do
           begin
-            if (e.ClassType <> EExitPromise) then
+            if (e.ClassType <> EExit) then
             begin
               reject(e.Message);
             end;
@@ -306,13 +303,13 @@ end;
 procedure TAsyncMethod.resolve(msg: string);
 begin
   thenCallback(msg);
-  raise EExitPromise.Create('force exit in resolve procedure');
+  raise EExit.Create('force exit in resolve procedure');
 end;
 
 procedure TAsyncMethod.reject(msg: string);
 begin
   catchCallback(msg);
-  raise EExitPromise.Create('force exit in reject procedure');
+  raise EExit.Create('force exit in reject procedure');
 end;
 
 destructor TAsyncMethod.Destroy;
