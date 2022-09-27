@@ -5,7 +5,7 @@ KLib Version = 3.0
 A library with some async utilities for your Delphi Apps.
 
 - FEATURES
-	- FULL IMPLEMENTATION OF PROMISES FORM JAVASCRIPT WITH SUPPORT OF Promises chaining -> SEE DOC https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+	- FULL IMPLEMENTATION OF PROMISES FROM JAVASCRIPT WITH SUPPORT OF Promises chaining -> SEE DOC https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
 	- PROMISE.ALL
 	- ASYNC FUNCTIONS
 
