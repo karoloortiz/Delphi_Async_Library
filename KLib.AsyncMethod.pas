@@ -70,9 +70,6 @@ uses
   Winapi.ActiveX,
   System.SysUtils, System.Classes;
 
-type
-  EExitPromise = class(EAbort);
-
 constructor TAsyncMethod.Create(executorFunction: TExecutorFunction; callBacks: TCallbacks);
 begin
   Create(executorFunction, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
@@ -125,7 +122,7 @@ begin
         except
           on e: Exception do
           begin
-            if (e.ClassType <> EExitPromise) then
+            if (e.ClassType <> EExit) then
             begin
               reject(e.Message);
             end;
@@ -141,13 +138,13 @@ end;
 procedure TAsyncMethod.resolve(msg: string);
 begin
   thenCallback(msg);
-  raise EExitPromise.Create('force exit in resolve procedure');
+  raise EExit.Create('force exit in resolve procedure');
 end;
 
 procedure TAsyncMethod.reject(msg: string);
 begin
   catchCallback(msg);
-  raise EExitPromise.Create('force exit in reject procedure');
+  raise EExit.Create('force exit in reject procedure');
 end;
 
 destructor TAsyncMethod.Destroy;
