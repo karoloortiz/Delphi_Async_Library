@@ -1,5 +1,5 @@
 {
-  KLib Version = 2.0
+  KLib Version = 3.0
   The Clear BSD License
 
   Copyright (c) 2020 by Karol De Nery Ortiz LLave. All rights reserved.
@@ -42,35 +42,6 @@ uses
   KLib.Types;
 
 type
-  //todo implementing of promises
-
-  TAsyncMethods = class
-  private
-    methods: TArrayOfMethods;
-    anonymousMethods: TArrayOfAnonymousMethods;
-    thenCallback: TCallBack;
-    catchCallback: TCallback;
-    typeOfProcedure: TTypeOfProcedure;
-    numberProcedures: integer;
-    countProceduresDone: integer;
-    constructor Create(_then: TCallBack; _catch: TCallback); reintroduce; overload;
-    procedure executeProcedures;
-    procedure executeAsyncMethod(_method: TMethod); overload;
-    procedure executeAsyncMethod(_anonymousMethod: TAnonymousMethod); overload;
-    procedure incCountProceduresDone;
-    function _get_exit: boolean;
-    procedure _set_exit(value: boolean);
-    property _exit: boolean read _get_exit write _set_exit;
-  public
-    status: TAsyncMethodStatus;
-    constructor Create(methods: TArrayOfMethods; callBacks: TCallbacks); reintroduce; overload;
-    constructor Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload;
-    constructor Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks); reintroduce; overload;
-    constructor Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback); reintroduce; overload; //restituire array con tutti i valori passati?
-    destructor Destroy; override;
-  end;
-
-  TExecutorFunction = reference to procedure(resolve: TCallBack; reject: TCallback);
 
   TAsyncMethod = class
   private
@@ -98,142 +69,6 @@ implementation
 uses
   Winapi.ActiveX,
   System.SysUtils, System.Classes;
-
-constructor TAsyncMethods.Create(methods: TArrayOfMethods; callBacks: TCallbacks);
-begin
-  Create(methods, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
-end;
-
-constructor TAsyncMethods.Create(methods: TArrayOfMethods; _then: TCallBack; _catch: TCallback);
-begin
-  Self.methods := methods;
-  typeOfProcedure := TTypeOfProcedure._method;
-  Create(_then, _catch);
-end;
-
-constructor TAsyncMethods.Create(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks);
-begin
-  Create(anonymousMethods, TCallBack(callBacks.resolve), TCallback(callBacks.reject));
-end;
-
-constructor TAsyncMethods.Create(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack; _catch: TCallback);
-begin
-  Self.anonymousMethods := anonymousMethods;
-  typeOfProcedure := TTypeOfProcedure._anonymousMethod;
-  Create(_then, _catch);
-end;
-
-constructor TAsyncMethods.Create(_then: TCallBack; _catch: TCallback);
-begin
-  case typeOfProcedure of
-    TTypeOfProcedure._method:
-      Self.numberProcedures := Length(methods);
-    TTypeOfProcedure._anonymousMethod:
-      Self.numberProcedures := Length(anonymousMethods);
-  end;
-  Self.countProceduresDone := 0;
-  status := TAsyncMethodStatus.created;
-  thenCallback := _then;
-  catchCallback := _catch;
-  executeProcedures;
-end;
-
-procedure TAsyncMethods.executeProcedures;
-var
-  i: integer;
-begin
-  status := TAsyncMethodStatus.pending;
-  for i := 0 to numberProcedures - 1 do
-  begin
-    case typeOfProcedure of
-      TTypeOfProcedure._method:
-        executeAsyncMethod(self.methods[i]);
-      TTypeOfProcedure._anonymousMethod:
-        executeAsyncMethod(self.anonymousMethods[i]);
-    end;
-  end;
-end;
-
-procedure TAsyncMethods.executeAsyncMethod(_method: TMethod);
-begin
-  TAsyncMethod.Create(
-    procedure(resolve: TCallBack; reject: TCallback)
-    begin
-      if not _exit then
-      begin
-        _method;
-        resolve('');
-      end;
-    end,
-    procedure(value: String)
-    begin
-      incCountProceduresDone;
-    end,
-    procedure(value: String)
-    begin
-      status := TAsyncMethodStatus.rejected;
-      if not _exit then
-      begin
-        catchCallback(value);
-        _exit := true;
-      end;
-    end);
-end;
-
-procedure TAsyncMethods.executeAsyncMethod(_anonymousMethod: TAnonymousMethod);
-begin
-  TAsyncMethod.Create(
-    procedure(resolve: TCallBack; reject: TCallback)
-    begin
-      if not _exit then
-      begin
-        _anonymousMethod;
-        resolve('');
-      end;
-    end,
-    procedure(value: String)
-    begin
-      incCountProceduresDone;
-    end,
-    procedure(value: String)
-    begin
-      if not _exit then
-      begin
-        status := TAsyncMethodStatus.rejected;
-        catchCallback(value);
-        _exit := true;
-      end;
-    end);
-end;
-
-procedure TAsyncMethods.incCountProceduresDone;
-begin
-  inc(countProceduresDone);
-  if (countProceduresDone = numberProcedures) then
-  begin
-    status := TAsyncMethodStatus.fulfilled;
-    thenCallback('');
-    _exit := true;
-  end;
-end;
-
-function TAsyncMethods._get_exit: boolean;
-begin
-  Result := (status = fulfilled) or (status = rejected);
-end;
-
-procedure TAsyncMethods._set_exit(value: boolean);
-begin
-  if value = true then
-  begin
-    Destroy;
-  end;
-end;
-
-destructor TAsyncMethods.Destroy;
-begin
-  inherited;
-end;
 
 type
   EExitPromise = class(EAbort);
