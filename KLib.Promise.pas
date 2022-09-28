@@ -57,6 +57,8 @@ type
     _then_threadList: TListOfThreads;
     _catch_threadList: TListOfThreads;
 
+    _default_reject_callback: TCallBack;
+
     procedure execute;
     procedure executeInAnonymousThread;
     procedure resolve(msg: string);
@@ -74,6 +76,7 @@ type
     //autoClean is like a FreeOnTerminate on TThread
     constructor Create(executorFunction: TExecutorFunction; callBacks: TCallbacks; autoClean: boolean = NOT_AUTO_CLEAN); reintroduce; overload;
     constructor Create(executorFunction: TExecutorFunction; _then: TCallBack = nil; _catch: TCallback = nil; autoClean: boolean = NOT_AUTO_CLEAN); reintroduce; overload;
+    function setCallbacks(callbacks: TCallBacks): TPromise; overload;
     function _then(onFulfilled: TCallBack; onRejected: TCallBack): TPromise; overload;
     function _then(onFulfilled: TCallBack): TPromise; overload;
     function _catch(onRejected: TCallback): TPromise;
@@ -233,6 +236,54 @@ begin
   end;
 end;
 
+procedure TPromise.execute;
+begin
+  if (not _alreadyExecuted) then
+  begin
+    _alreadyExecuted := true;
+    Self.status := TAsyncMethodStatus.pending;
+    executeInAnonymousThread;
+  end;
+end;
+
+procedure TPromise.executeInAnonymousThread;
+begin
+  _executor_thread := TThread.CreateAnonymousThread(
+    procedure
+    begin
+      CoInitialize(nil);
+      try
+        try
+          _executorFunction(resolve, reject);
+        except
+          on e: Exception do
+          begin
+            if (e.ClassType <> EExitPromise) then
+            begin
+              reject(e.Message);
+            end;
+          end;
+        end;
+      finally
+        CoUninitialize;
+      end;
+    end);
+  _executor_thread.FreeOnTerminate := False;
+  _executor_thread.Start;
+
+  if _autoClean then
+  begin
+    _finally;
+  end;
+end;
+
+function TPromise.setCallbacks(callbacks: TCallBacks): TPromise;
+begin
+  _then(callbacks.resolve, callbacks.reject);
+
+  Result := Self;
+end;
+
 function TPromise._then(onFulfilled: TCallBack; onRejected: TCallBack): TPromise;
 begin
   _then(onFulfilled);
@@ -254,7 +305,17 @@ begin
 
         if status = TAsyncMethodStatus.fulfilled then
         begin
-          onFulfilled(resultOfPromise);
+          try
+            onFulfilled(resultOfPromise);
+          except
+            on E: Exception do
+            begin
+              if (e.ClassType <> EExitPromise) then
+              begin
+                _default_reject_callback(e.Message);
+              end;
+            end;
+          end;
         end;
       finally
         CoUninitialize;
@@ -272,6 +333,11 @@ function TPromise._catch(onRejected: TCallback): TPromise;
 var
   _catch_thread: TThread;
 begin
+  if not Assigned(_default_reject_callback) then
+  begin
+    _default_reject_callback := onRejected;
+  end;
+
   _catch_thread := TThread.CreateAnonymousThread(
     procedure
     begin
@@ -330,47 +396,6 @@ begin
     end).Start;
 
   Self._autoCleanSetted := true;
-end;
-
-procedure TPromise.execute;
-begin
-  if (not _alreadyExecuted) then
-  begin
-    _alreadyExecuted := true;
-    Self.status := TAsyncMethodStatus.pending;
-    executeInAnonymousThread;
-  end;
-end;
-
-procedure TPromise.executeInAnonymousThread;
-begin
-  _executor_thread := TThread.CreateAnonymousThread(
-    procedure
-    begin
-      CoInitialize(nil);
-      try
-        try
-          _executorFunction(resolve, reject);
-        except
-          on e: Exception do
-          begin
-            if (e.ClassType <> EExitPromise) then
-            begin
-              reject(e.Message);
-            end;
-          end;
-        end;
-      finally
-        CoUninitialize;
-      end;
-    end);
-  _executor_thread.FreeOnTerminate := False;
-  _executor_thread.Start;
-
-  if _autoClean then
-  begin
-    _finally;
-  end;
 end;
 
 procedure TPromise.resolve(msg: string);

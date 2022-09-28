@@ -163,13 +163,8 @@ begin
         _promises[i]._then(incCountProceduresDone, reject)._finally();
       end;
     end,
-    procedure(value: string)
-    begin
-    end,
-    procedure(value: string)
-    begin
-      raise Exception.Create(value);
-    end,
+    nil,
+    nil,
     autoClean);
 
   Result := promiseAll;
