@@ -17,6 +17,11 @@ A library with some async utilities for your Delphi Apps.
 
 ## PROMISE
 ```pascal
+procedure myJob;
+begin
+//work
+end;
+
 procedure executionInAsyncModeWith_TPromise;
 var
   _promise: TPromise;
@@ -25,6 +30,7 @@ begin
     procedure(resolve: TCallBack; reject: TCallBack)
     begin
       myJob;
+      resolve('finish');
     end,
     procedure(value: String) // _then method
     begin
@@ -49,6 +55,11 @@ end;
 ```
 ## PROMISIFY
 ```pascal
+procedure myJob;
+begin
+//work
+end;
+
 procedure executionInAsyncModeWith_Promise.ALL;
 var
   _callbacks: TCallBacks;
