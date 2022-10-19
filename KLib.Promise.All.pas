@@ -43,7 +43,7 @@
 //    procedure(value: String) // _catch method
 //    begin
 //      //reject
-//    end);
+//    end)._finally;;
 
 unit KLib.Promise.All;
 
@@ -57,8 +57,10 @@ type
   TPromiseAllHelper = class helper for TPromise
     //    class function all(methods: TArrayOfMethods; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
     //    class function all(procedures: TArrayOfProcedures; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
-    class function all(anonymousMethods: TArrayOfAnonymousMethods; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
-    class function all(promises: TArrayOfPromises; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
+    class function all(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
+    class function all(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack = nil; _catch: TCallback = nil; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
+    class function all(promises: TArrayOfPromises; callBacks: TCallbacks; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
+    class function all(promises: TArrayOfPromises; _then: TCallBack = nil; _catch: TCallback = nil; autoClean: boolean = NOT_AUTO_CLEAN): TPromise; overload;
   end;
 
 implementation
@@ -108,7 +110,13 @@ uses
 //  Result := promiseAll;
 //end;
 
-class function TPromiseAllHelper.all(anonymousMethods: TArrayOfAnonymousMethods; autoClean: boolean = NOT_AUTO_CLEAN): TPromise;
+class function TPromiseAllHelper.all(anonymousMethods: TArrayOfAnonymousMethods; callBacks: TCallbacks; autoClean: boolean = NOT_AUTO_CLEAN): TPromise;
+begin
+  Result := all(anonymousMethods, TCallBack(callBacks.resolve), TCallback(callBacks.reject), autoClean);
+end;
+
+class function TPromiseAllHelper.all(anonymousMethods: TArrayOfAnonymousMethods; _then: TCallBack = nil; _catch: TCallback = nil;
+  autoClean: boolean = NOT_AUTO_CLEAN): TPromise;
 var
   promiseAll: TPromise;
 
@@ -124,12 +132,18 @@ begin
     _promises[i] := TPromise.Create(anonymousMethods[i]);
   end;
 
-  promiseAll := TPromise.all(_promises, autoClean);
+  promiseAll := TPromise.all(_promises, _then, _catch, autoClean);
 
   Result := promiseAll;
 end;
 
-class function TPromiseAllHelper.all(promises: TArrayOfPromises; autoClean: boolean = NOT_AUTO_CLEAN): TPromise;
+class function TPromiseAllHelper.all(promises: TArrayOfPromises; callBacks: TCallbacks; autoClean: boolean = NOT_AUTO_CLEAN): TPromise;
+begin
+  Result := all(promises, TCallBack(callBacks.resolve), TCallback(callBacks.reject), autoClean);
+end;
+
+class function TPromiseAllHelper.all(promises: TArrayOfPromises; _then: TCallBack = nil; _catch: TCallback = nil;
+  autoClean: boolean = NOT_AUTO_CLEAN): TPromise;
 var
   promiseAll: TPromise;
 
@@ -163,8 +177,8 @@ begin
         _promises[i]._then(incCountProceduresDone, reject)._finally();
       end;
     end,
-    nil,
-    nil,
+    _then,
+    _catch,
     autoClean);
 
   Result := promiseAll;
