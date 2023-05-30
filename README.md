@@ -60,7 +60,7 @@ begin
 //work
 end;
 
-procedure executionInAsyncModeWith_Promise.ALL;
+procedure executionInAsyncModeWith_Promisify;
 var
   _callbacks: TCallBacks;
 begin
@@ -97,7 +97,7 @@ begin
 //work
 end;
 
-procedure executionInAsyncModeWith_Promise.ALL;
+procedure executionInAsyncModeWith_PromiseAll;
 begin
   TPromise.all([myjob1, myjob2, myjob3])._then(
     procedure(value: String) // _then method
