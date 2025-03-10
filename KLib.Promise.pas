@@ -82,6 +82,10 @@ type
     function _catch(onRejected: TCallback): TPromise;
     procedure _finally; overload;
     procedure _finally(onFinally: KLib.Types.TAnonymousMethod); overload;
+
+    function await(): string;
+    procedure internalWait(ATimeout: Cardinal = INFINITE);
+
     destructor Destroy; override;
 
   end;
@@ -107,7 +111,7 @@ implementation
 
 uses
   Winapi.ActiveX,
-  System.SysUtils;
+  System.SysUtils, System.Types;
 
 type
   EExitPromise = class(EAbort);
@@ -396,6 +400,77 @@ begin
     end).Start;
 
   Self._autoCleanSetted := true;
+end;
+
+function TPromise.Await: string;
+var
+  LException: Exception;
+begin
+  InternalWait;
+
+  System.TMonitor.Enter(Self);
+  try
+    if status = TAsyncMethodStatus.rejected then
+    begin
+      raise Exception.Create('Promise rejected with value: ' + Self.resultOfPromise);
+    end;
+    if status = TAsyncMethodStatus.fulfilled then
+    begin
+      Result := Self.resultOfPromise;
+    end;
+    if (status <> TAsyncMethodStatus.rejected)
+      and (status <> TAsyncMethodStatus.fulfilled) then
+    begin
+      raise Exception.Create('InternalAwait finished, but our state is: ');
+      // + GetEnumName(TypeInfo(TPromiseState), Ord(State)));
+    end;
+  finally
+    System.TMonitor.Exit(Self);
+  end;
+end;
+
+procedure TPromise.InternalWait(ATimeout: Cardinal = INFINITE);
+const
+  MT_SIGNAL_WAIT = 10;
+  MT_SYNC_WAIT = 10;
+var
+  LRunning: Cardinal;
+begin
+  if (status = TAsyncMethodStatus.pending) then
+  begin
+    if TThread.CurrentThread.ThreadID = MainThreadID then
+    begin
+      LRunning := 0;
+
+      _promiseFinished_event.waitForInfinite;
+
+      _then_threadList.WaitFor;
+      _catch_threadList.WaitFor;
+
+      while (not(_promiseFinished_event.WaitFor(MT_SIGNAL_WAIT) = TWaitResult.wrSignaled))
+        and (LRunning < ATimeout) do
+      begin
+        CheckSynchronize(MT_SYNC_WAIT);
+        LRunning := LRunning + MT_SIGNAL_WAIT + MT_SYNC_WAIT;
+      end;
+    end
+    else
+    begin
+      var
+      LResult := _promiseFinished_event.WaitFor(ATimeout);
+
+      _promiseFinished_event.waitForInfinite;
+
+      _then_threadList.WaitFor;
+      _catch_threadList.WaitFor;
+
+      if LResult <> TWaitResult.wrSignaled then
+      begin
+        raise Exception.Create('Error Message');
+      end;
+      //raise EInternalWaitProblem.Create('Issue waiting for signal (not set before timeout?): ' + GetEnumName(TypeInfo(TWaitResult), Ord(LResult)));
+    end;
+  end;
 end;
 
 procedure TPromise.resolve(msg: string);

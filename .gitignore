@@ -2,3 +2,5 @@ __history/
 __recovery/
 *.~*
 !KLIB.*
+examples/
+!examples/*.zip
