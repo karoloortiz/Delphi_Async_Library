@@ -403,8 +403,6 @@ begin
 end;
 
 function TPromise.Await: string;
-var
-  LException: Exception;
 begin
   InternalWait;
 
